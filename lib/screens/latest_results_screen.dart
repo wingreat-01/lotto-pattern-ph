@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/draw_result.dart';
 import '../models/lotto_game.dart';
 import '../services/pattern_analyzer.dart';
+import '../services/entitlement_service.dart';
 import '../services/pcso_results_service.dart';
 
 /// Live PCSO results for the selected game, with the patterns found in the
@@ -29,6 +30,8 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
 
   late LottoGame _game = widget.initialGame;
   Timer? _timer;
+  bool _accessChecking = true;
+  bool _accessAllowed = false;
   bool _loading = false;
   String? _error;
   DateTime? _updatedAt;
@@ -49,10 +52,23 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
     final end = DateTime(today.year, today.month, today.day);
     _searchEnd = end;
     _searchStart = end.subtract(const Duration(days: 30));
-    _load();
-    _loadPatternActivity();
-    // "Live": re-check PCSO every couple of minutes while this tab is open.
-    _timer = Timer.periodic(_refreshEvery, (_) => _load(silent: true));
+    _checkAccess();
+  }
+
+
+  Future<void> _checkAccess() async {
+    try {
+      final allowed = await EntitlementService.instance.canOpenPremiumFeature();
+      if (!mounted) return;
+      setState(() { _accessAllowed = allowed; _accessChecking = false; });
+      if (!allowed) return;
+      _load();
+      _loadPatternActivity();
+      // "Live": re-check PCSO every couple of minutes while this tab is open.
+      _timer = Timer.periodic(_refreshEvery, (_) => _load(silent: true));
+    } catch (_) {
+      if (mounted) setState(() { _accessAllowed = false; _accessChecking = false; });
+    }
   }
 
   @override
@@ -259,6 +275,32 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final draws = _cache[_game] ?? const <DrawResult>[];
+
+    if (_accessChecking || !_accessAllowed) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Latest Results')),
+        body: Center(child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(_accessChecking ? Icons.lock_clock_rounded : Icons.lock_rounded,
+              size: 52, color: theme.colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(_accessChecking ? 'Checking access…' : 'Premium access required',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(_accessChecking
+              ? 'Please wait while we verify your trial or Lifetime Access.'
+              : 'Latest Draw Results and Activity Pattern are available during your 5-day trial or with Lifetime Access.',
+              textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.45)),
+            if (!_accessChecking) ...[
+              const SizedBox(height: 18),
+              OutlinedButton.icon(onPressed: _checkAccess,
+                icon: const Icon(Icons.refresh_rounded), label: const Text('Check again')),
+            ],
+          ]),
+        )),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

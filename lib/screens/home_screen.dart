@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+
+import '../services/entitlement_service.dart';
 
 import '../models/generation_mode.dart';
 import '../models/lotto_combination.dart';
@@ -26,17 +30,51 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _error;
   int _generationVersion = 0;
 
-  void _generate() {
+  bool _generating = false;
+
+  Future<void> _generate() async {
+    if (_generating) return;
+    setState(() { _generating = true; _error = null; });
     try {
+      // Generate first so a local generator error does not consume credits.
       final results = _service.generate(
         game: _game,
         count: _count,
         includePlusStep: _plusStep,
         mode: _mode,
       );
-      setState(() { _results = results; _error = null; _generationVersion++; });
+      final entitlement = await EntitlementService.instance.consumeCredits(
+        count: results.length,
+        requestId: const Uuid().v4(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _results = results;
+        _error = null;
+        _generationVersion++;
+      });
+      final remaining = entitlement.lifetimeUnlocked
+          ? 'Lifetime access active'
+          : '${entitlement.creditsRemaining} credits remaining';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(remaining), duration: const Duration(seconds: 2)),
+      );
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      final message = switch (e.message) {
+        'trial_already_used' => 'Your free trial has already been used. Unlock Lifetime Access to continue.',
+        'trial_expired' => 'Your 5-day trial has expired. Unlock Lifetime Access to continue.',
+        'insufficient_credits' => 'You have run out of free generation credits. Unlock Lifetime Access for unlimited generation.',
+        'google_sign_in_required' => 'Please sign in with Google to use pattern generation.',
+        _ => 'Could not verify your access. Check your internet connection and try again.',
+      };
+      setState(() { _error = message; });
     } on StateError catch (e) {
-      setState(() { _results = const []; _error = e.message; });
+      if (mounted) setState(() { _error = e.message; });
+    } catch (_) {
+      if (mounted) setState(() { _error = 'Could not verify your access. Check your internet connection and try again.'; });
+    } finally {
+      if (mounted) setState(() { _generating = false; });
     }
   }
 
@@ -44,11 +82,26 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute<void>(builder: (_) => const PatternGuideScreen()),
       );
 
-  void _openResults() => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => LatestResultsScreen(initialGame: _game),
-        ),
-      );
+  Future<void> _openResults() async {
+    try {
+      final allowed = await EntitlementService.instance.canOpenPremiumFeature();
+      if (!mounted) return;
+      if (!allowed) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Latest Results and Activity Pattern are available during your 5-day trial or with Lifetime Access.'),
+        ));
+        return;
+      }
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => LatestResultsScreen(initialGame: _game),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not verify access. Please check your connection and try again.'),
+      ));
+    }
+  }
 
   void _selectGame(LottoGame game) {
     if (game == _game) return;
