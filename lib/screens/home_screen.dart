@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
-
-import '../services/entitlement_service.dart';
+import '../services/monetization_service.dart';
 
 import '../models/generation_mode.dart';
 import '../models/lotto_combination.dart';
@@ -36,45 +33,83 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_generating) return;
     setState(() { _generating = true; _error = null; });
     try {
-      // Generate first so a local generator error does not consume credits.
+      // Generate locally first so invalid settings never consume an ad reward.
       final results = _service.generate(
         game: _game,
         count: _count,
         includePlusStep: _plusStep,
         mode: _mode,
       );
-      final entitlement = await EntitlementService.instance.consumeCredits(
-        count: results.length,
-        requestId: const Uuid().v4(),
-      );
+      final monetization = MonetizationService.instance;
+      if (!monetization.isPremium) {
+        final earned = await monetization.showRewardedAd();
+        if (!mounted) return;
+        if (!earned) {
+          setState(() {
+            _error = 'A rewarded video is not ready or was not completed. Please try again, or unlock Lifetime Premium to generate without ads.';
+          });
+          return;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _results = results;
         _error = null;
         _generationVersion++;
       });
-      final remaining = entitlement.lifetimeUnlocked
-          ? 'Lifetime access active'
-          : '${entitlement.creditsRemaining} credits remaining';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(remaining), duration: const Duration(seconds: 2)),
-      );
-    } on PostgrestException catch (e) {
-      if (!mounted) return;
-      final message = switch (e.message) {
-        'trial_already_used' => 'Your free trial has already been used. Unlock Lifetime Access to continue.',
-        'trial_expired' => 'Your 5-day trial has expired. Unlock Lifetime Access to continue.',
-        'insufficient_credits' => 'You have run out of free generation credits. Unlock Lifetime Access for unlimited generation.',
-        'google_sign_in_required' => 'Please sign in with Google to use pattern generation.',
-        _ => 'Could not verify your access. Check your internet connection and try again.',
-      };
-      setState(() { _error = message; });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(monetization.isPremium ? 'Lifetime Premium active — no ads' : 'Reward earned. Here are your combinations!'),
+        duration: const Duration(seconds: 2),
+      ));
     } on StateError catch (e) {
       if (mounted) setState(() { _error = e.message; });
     } catch (_) {
-      if (mounted) setState(() { _error = 'Could not verify your access. Check your internet connection and try again.'; });
+      if (mounted) setState(() { _error = 'Could not generate combinations. Please try again.'; });
     } finally {
       if (mounted) setState(() { _generating = false; });
+    }
+  }
+
+  Future<void> _showPremiumDialog() async {
+    final service = MonetizationService.instance;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AnimatedBuilder(
+        animation: service,
+        builder: (context, _) => AlertDialog(
+          title: const Text('Unlock Lifetime Premium'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Generate combinations without watching ads. One payment, no subscription.'),
+              const SizedBox(height: 12),
+              Text(service.lifetimePrice, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              const Text('Includes unlimited pattern generation and an ad-free experience.'),
+              if (service.purchaseError != null) ...[
+                const SizedBox(height: 12),
+                Text(service.purchaseError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: service.isBusy ? null : () => service.restorePurchases(), child: const Text('Restore')),
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Not now')),
+            FilledButton(
+              onPressed: service.isBusy || service.isPremium ? null : () async {
+                await service.buyLifetime();
+                if (!dialogContext.mounted) return;
+                if (service.isPremium) Navigator.of(dialogContext).pop();
+              },
+              child: Text(service.isBusy ? 'Please wait…' : service.isPremium ? 'Premium active' : 'Unlock once'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (mounted && service.isPremium) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lifetime Premium is active.')));
     }
   }
 
@@ -83,24 +118,9 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   Future<void> _openResults() async {
-    try {
-      final allowed = await EntitlementService.instance.canOpenPremiumFeature();
-      if (!mounted) return;
-      if (!allowed) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Latest Results and Activity Pattern are available during your 5-day trial or with Lifetime Access.'),
-        ));
-        return;
-      }
-      await Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => LatestResultsScreen(initialGame: _game),
-      ));
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Could not verify access. Please check your connection and try again.'),
-      ));
-    }
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => LatestResultsScreen(initialGame: _game),
+    ));
   }
 
   void _selectGame(LottoGame game) {
@@ -156,6 +176,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ]),
         actions: [
+          AnimatedBuilder(
+            animation: MonetizationService.instance,
+            builder: (context, _) => IconButton(
+              tooltip: MonetizationService.instance.isPremium ? 'Lifetime Premium active' : 'Remove ads — Lifetime Premium',
+              onPressed: MonetizationService.instance.isPremium ? null : _showPremiumDialog,
+              icon: Icon(MonetizationService.instance.isPremium ? Icons.workspace_premium : Icons.star_outline_rounded, color: const Color(0xFF6254DF)),
+            ),
+          ),
           IconButton(
             tooltip: 'Latest Results',
             onPressed: _openResults,
@@ -298,14 +326,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(
                   height: 58,
                   child: FilledButton.icon(
-                    onPressed: _generate,
-                    icon: const Icon(Icons.auto_awesome_rounded, size: 21),
-                    label: const Text('Generate combinations', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                    onPressed: _generating ? null : _generate,
+                    icon: Icon(_generating ? Icons.hourglass_top_rounded : Icons.auto_awesome_rounded, size: 21),
+                    label: Text(_generating ? 'Preparing your combinations…' : MonetizationService.instance.isPremium ? 'Generate combinations — No ads' : 'Watch ad to generate', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF6254DF),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       elevation: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                AnimatedBuilder(
+                  animation: MonetizationService.instance,
+                  builder: (context, _) => OutlinedButton.icon(
+                    onPressed: MonetizationService.instance.isPremium ? null : _showPremiumDialog,
+                    icon: const Icon(Icons.workspace_premium_rounded),
+                    label: Text(MonetizationService.instance.isPremium ? 'Lifetime Premium active' : 'Remove ads — Lifetime Premium'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF6254DF),
+                      side: const BorderSide(color: Color(0xFFD9D4FF)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
                 ),

@@ -1,23 +1,19 @@
 import 'package:flutter/material.dart';
 
 import 'screens/home_screen.dart';
-import 'screens/sign_in_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'services/monetization_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-  const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-  final configured = supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
-  if (configured) {
-    await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-  }
-  runApp(LottoApp(supabaseConfigured: configured));
+  runApp(const LottoApp());
+  // Initialize ads and Play Billing after the first frame so app startup stays responsive.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    MonetizationService.instance.initialize();
+  });
 }
 
 class LottoApp extends StatelessWidget {
-  const LottoApp({super.key, required this.supabaseConfigured});
-  final bool supabaseConfigured;
+  const LottoApp({super.key});
 
   static const _seed = Color(0xFF6657E8);
 
@@ -69,30 +65,8 @@ class LottoApp extends StatelessWidget {
           overlayColor: _seed.withValues(alpha: 0.12),
         ),
       ),
-      home: !supabaseConfigured
-          ? const _SupabaseSetupRequired()
-          : StreamBuilder<AuthState>(
-              stream: Supabase.instance.client.auth.onAuthStateChange,
-              builder: (context, snapshot) {
-                final session = Supabase.instance.client.auth.currentSession;
-                return session == null ? const SignInScreen() : const HomeScreen();
-              },
-            ),
+      home: const HomeScreen(),
     );
   }
 }
 
-
-class _SupabaseSetupRequired extends StatelessWidget {
-  const _SupabaseSetupRequired();
-  @override
-  Widget build(BuildContext context) => const Scaffold(
-    body: SafeArea(child: Center(child: Padding(
-      padding: EdgeInsets.all(28),
-      child: Text(
-        'Supabase is not configured yet. Run Flutter with --dart-define=SUPABASE_URL=YOUR_PROJECT_URL and --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_KEY after completing the setup in docs/TRIAL_PROTECTION_SETUP.md.',
-        textAlign: TextAlign.center,
-      ),
-    ))),
-  );
-}

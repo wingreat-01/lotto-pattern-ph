@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/draw_result.dart';
 import '../models/lotto_game.dart';
 import '../services/pattern_analyzer.dart';
-import '../services/entitlement_service.dart';
 import '../services/pcso_results_service.dart';
 
 /// Live PCSO results for the selected game, with the patterns found in the
@@ -30,8 +29,6 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
 
   late LottoGame _game = widget.initialGame;
   Timer? _timer;
-  bool _accessChecking = true;
-  bool _accessAllowed = false;
   bool _loading = false;
   String? _error;
   DateTime? _updatedAt;
@@ -52,24 +49,12 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
     final end = DateTime(today.year, today.month, today.day);
     _searchEnd = end;
     _searchStart = end.subtract(const Duration(days: 30));
-    _checkAccess();
+    _load();
+    _loadPatternActivity();
+    _timer = Timer.periodic(_refreshEvery, (_) => _load(silent: true));
   }
 
 
-  Future<void> _checkAccess() async {
-    try {
-      final allowed = await EntitlementService.instance.canOpenPremiumFeature();
-      if (!mounted) return;
-      setState(() { _accessAllowed = allowed; _accessChecking = false; });
-      if (!allowed) return;
-      _load();
-      _loadPatternActivity();
-      // "Live": re-check PCSO every couple of minutes while this tab is open.
-      _timer = Timer.periodic(_refreshEvery, (_) => _load(silent: true));
-    } catch (_) {
-      if (mounted) setState(() { _accessAllowed = false; _accessChecking = false; });
-    }
-  }
 
   @override
   void dispose() {
@@ -108,22 +93,37 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
         final game = result.key;
         final draws = result.value;
         var drawsWithPatterns = 0;
-        var patternMatches = 0;
+        var totalTypes = 0;
+        var fullDraws = 0;
+        final typeCounts = <String, int>{};
         for (final draw in draws) {
           final report = _analyzer.analyze(draw.numbers);
-          final matches = report.plusTwo.length +
-              report.twins.length +
-              report.reversed.length +
-              report.plusSteps.values.fold<int>(0, (sum, pairs) => sum + pairs.length) +
-              (report.hasConsecutive ? 1 : 0) +
-              (report.solo != null ? 1 : 0);
-          if (matches > 0) drawsWithPatterns++;
-          patternMatches += matches;
+          // Count each pattern TYPE once per draw (max 7), not every pair.
+          final found = <String>[
+            if (report.plusTwo.isNotEmpty) 'Plus 2',
+            if (report.twins.isNotEmpty) 'Twin',
+            if (report.reversed.isNotEmpty) 'Reversed',
+            for (final e in report.plusSteps.entries)
+              if (e.value.isNotEmpty) 'Plus ${e.key}',
+            if (report.solo != null) 'Solo',
+          ];
+          if (found.isNotEmpty) drawsWithPatterns++;
+          // A draw counts when all six numbers are accounted for by patterns,
+          // whichever patterns they are (a solo number counts as the sixth).
+          final covered = report.involved.length + (report.solo != null ? 1 : 0);
+          final isFull = draw.numbers.isNotEmpty && covered >= draw.numbers.toSet().length;
+          if (isFull) fullDraws++;
+          totalTypes += found.length;
+          for (final t in found) {
+            typeCounts[t] = (typeCounts[t] ?? 0) + 1;
+          }
         }
         summary[game] = _PatternActivity(
           totalDraws: draws.length,
           drawsWithPatterns: drawsWithPatterns,
-          patternMatches: patternMatches,
+          fullDraws: fullDraws,
+          totalTypes: totalTypes,
+          typeCounts: typeCounts,
         );
       }
       if (!mounted) return;
@@ -137,19 +137,19 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
     }
   }
 
+  /// All games that have draw data, ranked by average pattern types per draw.
   List<MapEntry<LottoGame, _PatternActivity>> _topPatternGames() {
     final entries = _patternActivity.entries
         .where((entry) => entry.value.totalDraws > 0)
         .toList();
     entries.sort((a, b) {
-      final rateCompare = b.value.rate.compareTo(a.value.rate);
-      if (rateCompare != 0) return rateCompare;
-      return b.value.patternMatches.compareTo(a.value.patternMatches);
+      final c = b.value.fullRate.compareTo(a.value.fullRate);
+      if (c != 0) return c;
+      final d = b.value.avgTypes.compareTo(a.value.avgTypes);
+      if (d != 0) return d;
+      return b.value.totalDraws.compareTo(a.value.totalDraws);
     });
-    // Return no more than two ranked games. Using a bounded sublist avoids
-    // any negative takeCount calculation if this method is later modified.
-    final end = entries.length < 2 ? entries.length : 2;
-    return entries.sublist(0, end);
+    return entries;
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -276,31 +276,6 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
     final muted = theme.colorScheme.onSurfaceVariant;
     final draws = _cache[_game] ?? const <DrawResult>[];
 
-    if (_accessChecking || !_accessAllowed) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Latest Results')),
-        body: Center(child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(_accessChecking ? Icons.lock_clock_rounded : Icons.lock_rounded,
-              size: 52, color: theme.colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(_accessChecking ? 'Checking access…' : 'Premium access required',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
-            const SizedBox(height: 8),
-            Text(_accessChecking
-              ? 'Please wait while we verify your trial or Lifetime Access.'
-              : 'Latest Draw Results and Activity Pattern are available during your 5-day trial or with Lifetime Access.',
-              textAlign: TextAlign.center, style: TextStyle(color: muted, height: 1.45)),
-            if (!_accessChecking) ...[
-              const SizedBox(height: 18),
-              OutlinedButton.icon(onPressed: _checkAccess,
-                icon: const Icon(Icons.refresh_rounded), label: const Text('Check again')),
-            ],
-          ]),
-        )),
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -521,7 +496,7 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Compares how often detected patterns appeared per draw across the five jackpot games.',
+              'Compares how often all six numbers of a draw belonged to a pattern across the five jackpot games.',
               style: TextStyle(color: muted, fontSize: 12, height: 1.4),
             ),
             const SizedBox(height: 12),
@@ -560,13 +535,19 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(top[i].key.displayName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                            Text('${top[i].value.drawsWithPatterns} of ${top[i].value.totalDraws} draws had patterns',
+                            Text(top[i].value.subtitle,
                                 style: TextStyle(color: muted, fontSize: 11)),
                           ],
                         ),
                       ),
-                      Text('${(top[i].value.rate * 100).round()}%',
-                          style: const TextStyle(color: _accent, fontSize: 18, fontWeight: FontWeight.w900)),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('${(top[i].value.fullRate * 100).round()}%',
+                              style: const TextStyle(color: _accent, fontSize: 18, fontWeight: FontWeight.w900)),
+                          Text('fully patterned', style: TextStyle(color: muted, fontSize: 10)),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -574,7 +555,7 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
               ],
               const SizedBox(height: 10),
               Text(
-                'Ranked by the percentage of draws containing at least one detected pattern. This is a historical summary, not a prediction of future winning numbers.',
+                'Percentage of draws where every number was part of a detected pattern (any patterns; a solo number counts). This is a historical summary, not a prediction of future winning numbers.',
                 style: TextStyle(color: muted, fontSize: 11, height: 1.4),
               ),
               if (_loadingPatternActivity) ...[
@@ -607,7 +588,6 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
       if (report.reversed.isNotEmpty) 'Reversed: ${pairText(report.reversed)}',
       for (final e in report.plusSteps.entries)
         if (e.value.isNotEmpty) 'Plus ${e.key}: ${pairText(e.value)}',
-      if (report.hasConsecutive) 'Consecutive run of ${report.longestRun}',
       if (report.solo != null) 'Solo pattern: ${_two(report.solo!)}',
     ];
 
@@ -677,14 +657,30 @@ class _PatternActivity {
   const _PatternActivity({
     required this.totalDraws,
     required this.drawsWithPatterns,
-    required this.patternMatches,
+    required this.fullDraws,
+    required this.totalTypes,
+    required this.typeCounts,
   });
 
   final int totalDraws;
   final int drawsWithPatterns;
-  final int patternMatches;
 
-  double get rate => totalDraws == 0 ? 0 : drawsWithPatterns / totalDraws;
+  /// Draws where all six numbers belong to some pattern (a solo counts).
+  final int fullDraws;
+
+  /// Sum over draws of how many different pattern types each draw had.
+  final int totalTypes;
+
+  /// How many draws contained each pattern type (e.g. 'Plus 20' -> 9).
+  final Map<String, int> typeCounts;
+
+  double get fullRate => totalDraws == 0 ? 0 : fullDraws / totalDraws;
+
+  /// Average number of different pattern types per draw (0-7).
+  double get avgTypes => totalDraws == 0 ? 0 : totalTypes / totalDraws;
+
+  String get subtitle =>
+      '$fullDraws of $totalDraws draws had all six numbers in patterns · avg ${avgTypes.toStringAsFixed(1)} patterns per draw';
 }
 
 class _Ball extends StatelessWidget {

@@ -29,18 +29,20 @@ class PatternReport {
   /// (e.g. 35 in 17-19-24-35-52-54). Null when it does not apply.
   final int? solo;
 
+  /// Informational only. Consecutive numbers are not one of the app's patterns,
+  /// so this is not shown as a chip and does not count toward `hasAny`.
   bool get hasConsecutive => longestRun >= 2;
 
   bool get hasAny =>
       plusTwo.isNotEmpty ||
       twins.isNotEmpty ||
       reversed.isNotEmpty ||
-      plusSteps.values.any((p) => p.isNotEmpty) ||
-      hasConsecutive;
+      plusSteps.values.any((p) => p.isNotEmpty);
 }
 
 /// Uses the same definitions as the generator (see README):
-/// plus 2, twin, reversed pair, plus 10/20/30 and consecutive runs.
+/// plus 2, twin, reversed pair and plus 10/20/30 (consecutive runs are only
+/// limited by the generator, they are not a pattern).
 class PatternAnalyzer {
   const PatternAnalyzer();
 
@@ -92,13 +94,7 @@ class PatternAnalyzer {
       run = numbers[i] == numbers[i - 1] + 1 ? run + 1 : 1;
       if (run > longest) longest = run;
     }
-    if (longest >= 2) {
-      for (var i = 0; i < numbers.length; i++) {
-        final prev = i > 0 && numbers[i - 1] == numbers[i] - 1;
-        final next = i < numbers.length - 1 && numbers[i + 1] == numbers[i] + 1;
-        if (prev || next) involved.add(numbers[i]);
-      }
-    }
+    // Consecutive runs are NOT a pattern, so they never add to `involved`.
 
     // If five of the six numbers already belong to a pattern, the remaining
     // number is the "solo" number.

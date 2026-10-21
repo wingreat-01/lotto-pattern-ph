@@ -30,4 +30,11 @@ void main() {
     expect(analyzer.analyze([17, 19, 24, 54, 35, 41]).solo, isNull);
     expect(analyzer.analyze([17, 19, 52, 54, 24, 14]).solo, isNull);
   });
+
+  test('adjacent numbers are not a pattern and do not make a solo', () {
+    final r = analyzer.analyze([1, 11, 19, 20, 23, 39]);
+    expect(r.twins, [11]);
+    expect(r.involved, {1, 11, 19, 39});
+    expect(r.solo, isNull); // 20 and 23 are both unpatterned
+  });
 }

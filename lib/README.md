@@ -1,4 +1,4 @@
-# Lotto Pattern Generator — Pattern-Based Prototype
+# LottoPattern PH — Pattern-Based Lotto Generator
 
 This is a starter Dart logic layer for a Flutter Android app. Copy `lib/` and `test/` into a project created with `flutter create`.
 
@@ -59,3 +59,7 @@ dependencies:
   html: ^0.15.4
 ```
 PCSO has no public API, so this submits the same search form as the website and parses the table. If PCSO redesigns the page, only `pcso_results_service.dart` needs updating. Android/iOS/desktop only (Flutter Web is blocked by CORS).
+
+
+## Account and monetization model
+The app opens directly without login or signup. Free users complete a rewarded video before generating combinations. A one-time Google Play Lifetime Premium purchase removes rewarded ads. See `MONETIZATION_SETUP.md` for required Play Console and AdMob setup.
