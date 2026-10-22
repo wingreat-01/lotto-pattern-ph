@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 import '../widgets/combination_card.dart';
 
@@ -100,7 +101,7 @@ class PatternGuideScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: const Color(0xFFEFEFF7), borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(color: context.lc.neutralFill, borderRadius: BorderRadius.circular(16)),
                   child: Text(
                     'Samples use Lotto 6/42 numbers. These patterns do not predict results or improve your odds of winning. Every draw is random.',
                     style: TextStyle(color: muted, fontSize: 11, height: 1.5),
@@ -166,12 +167,12 @@ class _PatternTile extends StatelessWidget {
                   ],
                 ]),
                 const SizedBox(height: 5),
-                Text(sample.caption, style: const TextStyle(fontSize: 11, color: Color(0xFF6B6783), fontWeight: FontWeight.w600)),
+                Text(sample.caption, style: TextStyle(fontSize: 11, color: context.lc.muted, fontWeight: FontWeight.w600)),
               ]),
           ]),
           if (info.note != null) ...[
             const SizedBox(height: 12),
-            Text(info.note!, style: const TextStyle(fontSize: 11, height: 1.45, color: Color(0xFF858399))),
+            Text(info.note!, style: TextStyle(fontSize: 11, height: 1.45, color: context.lc.muted)),
           ],
         ]),
       ),
@@ -208,9 +209,9 @@ class _ExampleSetCard extends StatelessWidget {
               style: TextStyle(fontSize: 12, height: 1.5, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'The Plus 10 pair reuses 14 from the Plus 2 pair, so all the patterns fit in six numbers. Only the new number (24) is colored as Plus 10.',
-              style: TextStyle(fontSize: 11, height: 1.45, color: Color(0xFF858399)),
+              style: TextStyle(fontSize: 11, height: 1.45, color: context.lc.muted),
             ),
           ]),
         ),
@@ -242,7 +243,7 @@ class _Bullet extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: RichText(
-          text: TextSpan(style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF343249)), children: [
+          text: TextSpan(style: TextStyle(fontSize: 12, height: 1.5, color: context.lc.strongText), children: [
             TextSpan(text: '$title  ', style: const TextStyle(fontWeight: FontWeight.w800)),
             TextSpan(text: text),
           ]),

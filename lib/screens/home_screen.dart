@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import '../services/monetization_service.dart';
 
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _generationVersion = 0;
 
   bool _generating = false;
+  int _selectedNavIndex = 0;
 
   Future<void> _generate() async {
     if (_generating) return;
@@ -150,62 +152,140 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
+    final lc = context.lc;
 
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 20,
-        title: Row(children: [
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8175FF), Color(0xFF5C4BD8)],
-                begin: Alignment.topLeft, end: Alignment.bottomRight,
+        leading: Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Open navigation menu',
+            icon: const Icon(Icons.menu_rounded, size: 27),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        titleSpacing: 4,
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                'assets/images/lotto_pattern_ph_logo.png',
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0A43C2), Color(0xFF092477)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.casino_rounded, color: Colors.white),
+                ),
               ),
-              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 23),
-          ),
-          const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('LottoPattern PH', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
-              Text('Combination generator', style: TextStyle(fontSize: 12, color: Color(0xFF77758B), fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ]),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Lotto Pattern PH', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: -.45)),
+                  Text('Number pattern generator',
+                    style: TextStyle(fontSize: 11, color: lc.muted, fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
+          IconButton(
+            tooltip: theme.brightness == Brightness.dark ? 'Switch to light mode' : 'Switch to dark mode',
+            onPressed: () => ThemeController.instance.toggle(context),
+            icon: Icon(theme.brightness == Brightness.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+          ),
           AnimatedBuilder(
             animation: MonetizationService.instance,
             builder: (context, _) => IconButton(
-              tooltip: MonetizationService.instance.isPremium ? 'Lifetime Premium active' : 'Remove ads — Lifetime Premium',
+              tooltip: MonetizationService.instance.isPremium ? 'Lifetime Premium active' : 'Unlock Lifetime Premium',
               onPressed: MonetizationService.instance.isPremium ? null : _showPremiumDialog,
-              icon: Icon(MonetizationService.instance.isPremium ? Icons.workspace_premium : Icons.star_outline_rounded, color: const Color(0xFF6254DF)),
+              icon: Icon(
+                MonetizationService.instance.isPremium ? Icons.workspace_premium_rounded : Icons.workspace_premium_outlined,
+                color: const Color(0xFFE0A800),
+              ),
             ),
           ),
-          IconButton(
-            tooltip: 'Latest Results',
-            onPressed: _openResults,
-            icon: const Icon(Icons.casino_outlined),
-          ),
-          IconButton(
-            tooltip: 'Pattern guide',
-            onPressed: _openGuide,
-            icon: const Icon(Icons.menu_book_outlined),
-          ),
-          IconButton(
-            tooltip: 'About pattern generation',
-            onPressed: () => showAboutDialog(
-              context: context,
-              applicationName: 'LottoPattern PH',
-              applicationVersion: '1.0',
-              children: const [Text('Creates number combinations using selected number patterns. It does not predict winning numbers or improve the odds of a random draw.')],
-            ),
-            icon: const Icon(Icons.info_outline_rounded),
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
+      ),
+      drawer: Drawer(
+        backgroundColor: lc.surface,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF082B8A), Color(0xFF0759D8)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.asset('assets/images/lotto_pattern_ph_logo.png',
+                        width: 58, height: 58, fit: BoxFit.cover),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Lotto Pattern PH', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                        SizedBox(height: 4),
+                        Text('Explore. Generate. Review.', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      ],
+                    )),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              _drawerItem(context, icon: Icons.home_rounded, label: 'Home', onTap: () => Navigator.pop(context)),
+              _drawerItem(context, icon: Icons.auto_graph_rounded, label: 'Pattern Guide', onTap: () { Navigator.pop(context); _openGuide(); }),
+              _drawerItem(context, icon: Icons.casino_rounded, label: 'Latest Draw Results', onTap: () { Navigator.pop(context); _openResults(); }),
+              _drawerItem(context, icon: Icons.workspace_premium_rounded, label: 'Lifetime Premium', onTap: () { Navigator.pop(context); _showPremiumDialog(); }),
+              const Divider(indent: 18, endIndent: 18, height: 24),
+              _drawerItem(context, icon: Icons.info_outline_rounded, label: 'About Lotto Pattern PH', onTap: () {
+                Navigator.pop(context);
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'Lotto Pattern PH',
+                  applicationVersion: '1.0',
+                  children: const [Text('Creates number combinations using selected number patterns. It does not predict winning numbers or improve the odds of a random draw.')],
+                );
+              }),
+              SwitchListTile(
+                secondary: Icon(Icons.dark_mode_rounded, color: lc.drawerIcon),
+                title: const Text('Dark mode', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                value: theme.brightness == Brightness.dark,
+                onChanged: (v) => ThemeController.instance.setMode(v ? ThemeMode.dark : ThemeMode.light),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
+                child: Text('For entertainment only. Lottery draws are random.',
+                  style: TextStyle(color: lc.muted, fontSize: 11, height: 1.4)),
+              ),
+            ],
+          ),
+        ),
       ),
       body: SafeArea(
         child: Align(
@@ -219,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF29254F), Color(0xFF5144A6), Color(0xFF7165E8)],
+                      colors: [Color(0xFF06277F), Color(0xFF064BC0), Color(0xFF0878E8)],
                       begin: Alignment.topLeft, end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(28),
@@ -230,12 +310,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(color: Colors.white.withValues(alpha: .14), borderRadius: BorderRadius.circular(30)),
-                        child: const Text('YOUR NUMBERS, YOUR WAY', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+                        child: const Text('EXPLORE PATTERNS · GENERATE NUMBERS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
                       ),
                       const SizedBox(height: 17),
                       const Text('Your numbers.\nYour patterns.', style: TextStyle(color: Colors.white, fontSize: 28, height: 1.12, fontWeight: FontWeight.w800, letterSpacing: -0.8)),
                       const SizedBox(height: 10),
-                      Text('Explore number combinations with seven simple pattern types.', style: TextStyle(color: Colors.white.withValues(alpha: .78), height: 1.4, fontSize: 13)),
+                      Text('Explore number combinations for supported Philippine lotto games.', style: TextStyle(color: Colors.white.withValues(alpha: .78), height: 1.4, fontSize: 13)),
                       const SizedBox(height: 20),
                       const Wrap(spacing: 8, runSpacing: 8, children: [
                         _PatternPill(label: 'Plus 2', color: Color(0xFF8EC5FF)),
@@ -263,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           onTap: () => _selectGame(LottoGame.values[i]),
                         ),
                         if (i != LottoGame.values.length - 1)
-                          const Divider(height: 8, indent: 52, color: Color(0xFFF0EFF6)),
+                          Divider(height: 8, indent: 52, color: lc.hairline),
                       ],
                     ]),
                   ),
@@ -279,8 +359,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Expanded(child: Text('Number of sets', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(color: const Color(0xFFF0EEFF), borderRadius: BorderRadius.circular(12)),
-                          child: Text('$_count', style: const TextStyle(color: Color(0xFF5C4BD8), fontSize: 18, fontWeight: FontWeight.w800)),
+                          decoration: BoxDecoration(color: lc.tint, borderRadius: BorderRadius.circular(12)),
+                          child: Text('$_count', style: TextStyle(color: lc.accent, fontSize: 18, fontWeight: FontWeight.w800)),
                         ),
                       ]),
                       Slider(
@@ -288,11 +368,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: '$_count sets',
                         onChanged: (v) => setState(() => _count = v.round()),
                       ),
-                      const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        Text('1 set', style: TextStyle(fontSize: 11, color: Color(0xFF858399))),
-                        Text('10 sets', style: TextStyle(fontSize: 11, color: Color(0xFF858399))),
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text('1 set', style: TextStyle(fontSize: 11, color: lc.muted)),
+                        Text('10 sets', style: TextStyle(fontSize: 11, color: lc.muted)),
                       ]),
-                      const Divider(height: 20, color: Color(0xFFF0EFF6)),
+                      Divider(height: 20, color: lc.hairline),
                       const Text('Pattern mode', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                       const SizedBox(height: 10),
                       SizedBox(
@@ -308,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(_mode.description, style: const TextStyle(fontSize: 11, color: Color(0xFF858399))),
+                      Text(_mode.description, style: TextStyle(fontSize: 11, color: lc.muted)),
                       if (_mode == GenerationMode.allPatterns) ...[
                         const SizedBox(height: 6),
                         SwitchListTile(
@@ -345,8 +425,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: const Icon(Icons.workspace_premium_rounded),
                     label: Text(MonetizationService.instance.isPremium ? 'Lifetime Premium active' : 'Remove ads — Lifetime Premium'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF6254DF),
-                      side: const BorderSide(color: Color(0xFFD9D4FF)),
+                      foregroundColor: lc.accent,
+                      side: BorderSide(color: lc.outlineAccent),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
@@ -365,15 +445,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: lc.surface,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFEAE9F3)),
+                      border: Border.all(color: lc.border),
                     ),
                     child: Column(children: [
                       Container(
                         width: 64, height: 64,
-                        decoration: BoxDecoration(color: const Color(0xFFF0EEFF), borderRadius: BorderRadius.circular(22)),
-                        child: const Icon(Icons.confirmation_number_outlined, color: Color(0xFF6254DF), size: 32),
+                        decoration: BoxDecoration(color: lc.tint, borderRadius: BorderRadius.circular(22)),
+                        child: Icon(Icons.confirmation_number_outlined, color: lc.accent, size: 32),
                       ),
                       const SizedBox(height: 14),
                       const Text('Your combinations appear here', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
@@ -393,8 +473,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: const Icon(Icons.copy_all_rounded, size: 17),
                       label: const Text('Copy all'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF5C4BD8),
-                        side: const BorderSide(color: Color(0xFFDCD8FF)),
+                        foregroundColor: lc.accent,
+                        side: BorderSide(color: lc.outlineAccent),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
                       ),
                     ),
@@ -407,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPressed: _openGuide,
                       icon: const Icon(Icons.help_outline_rounded, size: 17),
                       label: const Text('What do these patterns mean?'),
-                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF5C4BD8), padding: EdgeInsets.zero),
+                      style: TextButton.styleFrom(foregroundColor: lc.accent, padding: EdgeInsets.zero),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -424,9 +504,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: const Color(0xFFEFEFF7), borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(color: lc.neutralFill, borderRadius: BorderRadius.circular(16)),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Icon(Icons.info_outline_rounded, size: 19, color: Color(0xFF6E6B86)),
+                    Icon(Icons.info_outline_rounded, size: 19, color: lc.muted),
                     const SizedBox(width: 10),
                     Expanded(child: Text('For entertainment only. Lottery draws are random, and these patterns do not predict results or improve your odds. Please play responsibly.', style: TextStyle(color: muted, fontSize: 11, height: 1.5))),
                   ]),
@@ -436,8 +516,51 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedNavIndex,
+        height: 68,
+        backgroundColor: lc.surface,
+        indicatorColor: lc.navIndicator,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        onDestinationSelected: (index) async {
+          setState(() => _selectedNavIndex = index);
+          switch (index) {
+            case 0:
+              break;
+            case 1:
+              _openGuide();
+              if (mounted) setState(() => _selectedNavIndex = 0);
+              break;
+            case 2:
+              await _openResults();
+              if (mounted) setState(() => _selectedNavIndex = 0);
+              break;
+            case 3:
+              await _showPremiumDialog();
+              if (mounted) setState(() => _selectedNavIndex = 0);
+              break;
+          }
+        },
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.auto_graph_outlined), selectedIcon: Icon(Icons.auto_graph_rounded), label: 'Patterns'),
+          NavigationDestination(icon: Icon(Icons.casino_outlined), selectedIcon: Icon(Icons.casino_rounded), label: 'Results'),
+          NavigationDestination(icon: Icon(Icons.workspace_premium_outlined), selectedIcon: Icon(Icons.workspace_premium_rounded), label: 'Premium'),
+        ],
+      ),
     );
   }
+}
+
+Widget _drawerItem(BuildContext context, {required IconData icon, required String label, required VoidCallback onTap}) {
+  return ListTile(
+    leading: Icon(icon, color: context.lc.drawerIcon),
+    title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+    trailing: Icon(Icons.chevron_right_rounded, color: context.lc.iconDim),
+    onTap: onTap,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 22),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  );
 }
 
 class _PatternPill extends StatelessWidget {
@@ -464,14 +587,14 @@ class _SectionHeading extends StatelessWidget {
     Container(
       width: 34, height: 34,
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: const Color(0xFFEAE7FF), borderRadius: BorderRadius.circular(12)),
-      child: Text(number, style: const TextStyle(color: Color(0xFF6254DF), fontSize: 11, fontWeight: FontWeight.w900)),
+      decoration: BoxDecoration(color: context.lc.tint, borderRadius: BorderRadius.circular(12)),
+      child: Text(number, style: TextStyle(color: context.lc.accent, fontSize: 11, fontWeight: FontWeight.w900)),
     ),
     const SizedBox(width: 11),
     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -.2)),
       const SizedBox(height: 3),
-      Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF858399))),
+      Text(subtitle, style: TextStyle(fontSize: 12, color: context.lc.muted)),
     ])),
   ]);
 }
@@ -491,21 +614,21 @@ class _GameTile extends StatelessWidget {
         Container(
           width: 40, height: 40,
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFECE9FF) : const Color(0xFFF4F3F9),
+            color: selected ? context.lc.tint : context.lc.neutralFill,
             borderRadius: BorderRadius.circular(13),
           ),
-          child: Icon(Icons.casino_outlined, color: selected ? const Color(0xFF6254DF) : const Color(0xFF89869E), size: 21),
+          child: Icon(Icons.casino_outlined, color: selected ? context.lc.accent : context.lc.muted, size: 21),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(game.displayName, style: TextStyle(fontSize: 13, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: const Color(0xFF222139))),
+          Text(game.displayName, style: TextStyle(fontSize: 13, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: context.lc.strongText)),
           const SizedBox(height: 3),
-          Text('Pick 6 numbers · 1–${game.maxNumber}', style: const TextStyle(fontSize: 11, color: Color(0xFF89869E))),
+          Text('Pick 6 numbers · 1–${game.maxNumber}', style: TextStyle(fontSize: 11, color: context.lc.muted)),
         ])),
         if (selected)
-          const Icon(Icons.check_circle_rounded, color: Color(0xFF6254DF), size: 22)
+          Icon(Icons.check_circle_rounded, color: context.lc.accent, size: 22)
         else
-          const Icon(Icons.circle_outlined, color: Color(0xFFD4D2E1), size: 22),
+          Icon(Icons.circle_outlined, color: context.lc.iconDim, size: 22),
       ]),
     ),
   );

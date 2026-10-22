@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/draw_result.dart';
@@ -355,7 +356,7 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
                           label: Text(g.displayName),
                           selected: g == _game,
                           onSelected: (_) => _selectGame(g),
-                          selectedColor: const Color(0xFFECE9FF),
+                          selectedColor: context.lc.tint,
                         ),
                     ],
                   ),
@@ -458,12 +459,12 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFEFF7),
+                      color: context.lc.neutralFill,
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Results are read from the official PCSO results page and refresh every 2 minutes. PCSO usually posts after the 9 PM draw. Always confirm winning numbers with PCSO. Patterns are shown for reference only; draws are random and patterns do not predict future results.',
-                      style: TextStyle(color: Color(0xFF6E6B86), fontSize: 12, height: 1.5),
+                      style: TextStyle(color: context.lc.muted, fontSize: 12, height: 1.5),
                     ),
                   ),
                 ],
@@ -478,17 +479,17 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
   Widget _patternActivityCard(ThemeData theme, Color muted) {
     final top = _topPatternGames();
     return Card(
-      color: const Color(0xFFF2F0FF),
+      color: context.lc.tint,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: const [
-                Icon(Icons.insights_rounded, color: _accent),
-                SizedBox(width: 8),
-                Expanded(
+              children: [
+                Icon(Icons.insights_rounded, color: context.lc.accent),
+                const SizedBox(width: 8),
+                const Expanded(
                   child: Text('30-Day Pattern Activity',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                 ),
@@ -517,7 +518,7 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.75),
+                    color: context.lc.surface.withValues(alpha: .75),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -629,12 +630,12 @@ class _LatestResultsScreenState extends State<LatestResultsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECE9FF),
+                        color: context.lc.tint,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(c,
-                          style: const TextStyle(
-                              color: _accent, fontSize: 12, fontWeight: FontWeight.w700)),
+                          style: TextStyle(
+                              color: context.lc.accent, fontSize: 12, fontWeight: FontWeight.w700)),
                     ),
                 ],
               ),
@@ -697,13 +698,13 @@ class _Ball extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: highlighted ? const Color(0xFF6254DF) : const Color(0xFFE6E5EE),
+        color: highlighted ? const Color(0xFF6254DF) : context.lc.ballFill,
       ),
       child: Text(
         number,
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: highlighted ? Colors.white : const Color(0xFF3B3957),
+          color: highlighted ? Colors.white : context.lc.strongText,
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 import '../models/lotto_combination.dart';
 
@@ -85,15 +86,15 @@ class CombinationCard extends StatelessWidget {
           Row(children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: const Color(0xFFF0EEFF), borderRadius: BorderRadius.circular(10)),
-              child: Text('SET ${index.toString().padLeft(2, '0')}', style: const TextStyle(color: Color(0xFF6254DF), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .7)),
+              decoration: BoxDecoration(color: context.lc.tint, borderRadius: BorderRadius.circular(10)),
+              child: Text('SET ${index.toString().padLeft(2, '0')}', style: TextStyle(color: context.lc.accent, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .7)),
             ),
             const Spacer(),
             IconButton(
               tooltip: 'Copy numbers',
               onPressed: onCopy,
               icon: const Icon(Icons.content_copy_rounded, size: 18),
-              style: IconButton.styleFrom(backgroundColor: const Color(0xFFF5F4FA), foregroundColor: const Color(0xFF6B6783)),
+              style: IconButton.styleFrom(backgroundColor: context.lc.neutralFill, foregroundColor: context.lc.muted),
             ),
           ]),
           const SizedBox(height: 12),
@@ -110,7 +111,7 @@ class CombinationCard extends StatelessWidget {
             );
           }),
           const SizedBox(height: 16),
-          Container(height: 1, color: const Color(0xFFF0EFF6)),
+          Container(height: 1, color: context.lc.hairline),
           const SizedBox(height: 12),
           Text('PATTERN BREAKDOWN', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
           const SizedBox(height: 9),
@@ -147,7 +148,7 @@ class _DetailChip extends StatelessWidget {
     decoration: BoxDecoration(color: color.withValues(alpha: .08), borderRadius: BorderRadius.circular(11)),
     child: RichText(text: TextSpan(style: const TextStyle(fontSize: 11), children: [
       TextSpan(text: '$label  ', style: TextStyle(color: color, fontWeight: FontWeight.w700)),
-      TextSpan(text: value, style: const TextStyle(color: Color(0xFF343249), fontWeight: FontWeight.w800)),
+      TextSpan(text: value, style: TextStyle(color: context.lc.strongText, fontWeight: FontWeight.w800)),
     ])),
   );
 }
