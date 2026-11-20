@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+# Old Flutter web build; the app is now distributed on Google Play.
+Disallow: /app/
+
+Sitemap: https://lottopattern.prohubapps.com/sitemap.xml
