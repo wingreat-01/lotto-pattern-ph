@@ -5,7 +5,6 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 /// Monetization helpers for rewarded generation and the one-time ad-free unlock.
-/// Replace the test ad unit with your own AdMob rewarded unit before release.
 class MonetizationService extends ChangeNotifier {
   MonetizationService._() {
     _purchaseSubscription = _billing.purchaseStream.listen(
@@ -17,8 +16,12 @@ class MonetizationService extends ChangeNotifier {
 
   static final MonetizationService instance = MonetizationService._();
   static const String lifetimeProductId = 'lottopattern_lifetime_199';
-  // LottoPattern PH production rewarded-ad unit. Use Google's test unit during development.
-  static const String _rewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
+  // Debug builds use Google's sample rewarded unit so we never click our own live ads.
+  static const String _testRewardedAdUnitId = 'ca-app-pub-3940256099942544/5224354917';
+  // LottoPattern PH production rewarded-ad unit (AdMob → Ad units → "Generate reward").
+  static const String _prodRewardedAdUnitId = 'ca-app-pub-4685420102315438/1140616763';
+  static const String _rewardedAdUnitId =
+      kReleaseMode ? _prodRewardedAdUnitId : _testRewardedAdUnitId;
 
   final InAppPurchase _billing = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
@@ -34,14 +37,71 @@ class MonetizationService extends ChangeNotifier {
   ProductDetails? get lifetimeProduct => _lifetimeProduct;
   String get lifetimePrice => _lifetimeProduct?.price ?? '₱199';
 
+  bool _adsInitialized = false;
+  bool _privacyOptionsRequired = false;
+
+  /// True when the user is in a region (EEA/UK/CH) where they must be able to
+  /// change their ad consent later — show a "Privacy settings" entry then.
+  bool get privacyOptionsRequired => _privacyOptionsRequired;
+
   Future<void> initialize() async {
-    await MobileAds.instance.initialize();
-    await _loadRewardedAd();
+    await _gatherConsent();
+    await _initAdsIfAllowed();
     await loadProducts();
+  }
+
+  /// Google UMP consent flow. Shows the AdMob "Privacy & messaging" form only
+  /// to users who need it (e.g. EEA/UK/Switzerland); everyone else sees nothing.
+  Future<void> _gatherConsent() async {
+    final done = Completer<void>();
+    ConsentInformation.instance.requestConsentInfoUpdate(
+      ConsentRequestParameters(),
+      () => ConsentForm.loadAndShowConsentFormIfRequired((_) {
+        if (!done.isCompleted) done.complete();
+      }),
+      (_) {
+        if (!done.isCompleted) done.complete();
+      },
+    );
+    await done.future;
+    await _refreshPrivacyOptionsStatus();
+  }
+
+  Future<void> _refreshPrivacyOptionsStatus() async {
+    try {
+      _privacyOptionsRequired = await ConsentInformation.instance.getPrivacyOptionsRequirementStatus() ==
+          PrivacyOptionsRequirementStatus.required;
+    } catch (_) {
+      _privacyOptionsRequired = false;
+    }
+    notifyListeners();
+  }
+
+  Future<void> _initAdsIfAllowed() async {
+    if (_adsInitialized) return;
+    if (!await ConsentInformation.instance.canRequestAds()) return;
+    await MobileAds.instance.initialize();
+    _adsInitialized = true;
+    await _loadRewardedAd();
+  }
+
+  /// Lets the user review or withdraw ad consent (required where consent applies).
+  Future<void> showPrivacyOptions() async {
+    final done = Completer<void>();
+    ConsentForm.showPrivacyOptionsForm((_) {
+      if (!done.isCompleted) done.complete();
+    });
+    await done.future;
+    await _refreshPrivacyOptionsStatus();
+    await _initAdsIfAllowed();
   }
 
   Future<void> _loadRewardedAd() async {
     if (_rewardedAd != null) return;
+    if (!_adsInitialized) {
+      await _initAdsIfAllowed();
+      if (!_adsInitialized) return;
+    }
     final completer = Completer<void>();
     RewardedAd.load(
       adUnitId: _rewardedAdUnitId,

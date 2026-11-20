@@ -260,6 +260,15 @@ class _HomeScreenState extends State<HomeScreen> {
               _drawerItem(context, icon: Icons.casino_rounded, label: 'Latest Draw Results', onTap: () { Navigator.pop(context); _openResults(); }),
               _drawerItem(context, icon: Icons.workspace_premium_rounded, label: 'Lifetime Premium', onTap: () { Navigator.pop(context); _showPremiumDialog(); }),
               const Divider(indent: 18, endIndent: 18, height: 24),
+              AnimatedBuilder(
+                animation: MonetizationService.instance,
+                builder: (context, _) => MonetizationService.instance.privacyOptionsRequired
+                    ? _drawerItem(context, icon: Icons.privacy_tip_outlined, label: 'Privacy settings', onTap: () {
+                        Navigator.pop(context);
+                        MonetizationService.instance.showPrivacyOptions();
+                      })
+                    : const SizedBox.shrink(),
+              ),
               _drawerItem(context, icon: Icons.info_outline_rounded, label: 'About Lotto Pattern PH', onTap: () {
                 Navigator.pop(context);
                 showAboutDialog(
